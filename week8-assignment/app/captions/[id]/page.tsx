@@ -237,7 +237,8 @@ export default async function CaptionDetailPage({ params }: { params: Promise<{ 
                   <p className="text-sm mt-2">This could be because the response tables were cleared, or the data has not synced.</p>
                 </div>
               ) : (
-                <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-300 dark:before:via-gray-600 before:to-transparent">
+                <div className="space-y-8 relative">
+                  {/* Replaced the full-height before line with absolute line to remove the line "down the middle" that was causing layout artifacts */}
                   {modelResponses.map((step, index) => {
                     // Extract data safely based on potential array wraps
                     const modelObj = Array.isArray(step.llm_models) ? step.llm_models[0] : step.llm_models;
@@ -276,48 +277,56 @@ export default async function CaptionDetailPage({ params }: { params: Promise<{ 
                     }
 
                     return (
-                      <div key={step.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                      <div key={step.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden relative">
+                        {/* Connecting Line for Timeline effect - only show if not the last item */}
+                        {index !== modelResponses.length - 1 && (
+                            <div className="absolute left-6 top-16 bottom-[-2rem] w-0.5 bg-gray-200 dark:bg-gray-700 z-0 hidden md:block"></div>
+                        )}
 
                         {/* Step Header */}
-                        <div className="bg-gray-50 dark:bg-gray-900/50 p-4 border-b border-gray-200 dark:border-gray-700">
-                          <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                              <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded">Step {stepOrder}</span>
-                              {stepTypeName}
-                            </h3>
-                            <Link href={`/llm-responses/${step.id}`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                              View Raw Log
-                            </Link>
-                          </div>
-                          {stepDescription && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{stepDescription}</p>
-                          )}
-
-                          {/* Step Metadata */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Order</div>
-                              <div className="text-gray-900 dark:text-white font-mono">{stepOrder}</div>
-                            </div>
-                            <div>
-                              <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Model</div>
-                              <div className="text-gray-900 dark:text-white font-mono">
-                                {modelName} <span className="text-gray-400 text-xs">({providerModelId})</span>
+                        <div className="bg-gray-50 dark:bg-gray-900/50 p-4 border-b border-gray-200 dark:border-gray-700 flex items-start gap-4 relative z-10">
+                           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm shrink-0 shadow-sm">
+                             {index + 1}
+                           </div>
+                           <div className="flex-grow">
+                              <div className="flex items-center justify-between mb-1">
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                  Step {stepOrder} - {stepTypeName}
+                                </h3>
+                                <Link href={`/llm-responses/${step.id}`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                                  View Raw Log
+                                </Link>
                               </div>
-                            </div>
-                            <div>
-                              <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Temperature</div>
-                              <div className="text-gray-900 dark:text-white font-mono">{step.llm_temperature != null ? step.llm_temperature.toFixed(2) : 'Default'}</div>
-                            </div>
-                            <div>
-                              <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Processing Time</div>
-                              <div className="text-gray-900 dark:text-white font-mono">{step.processing_time_seconds}s</div>
-                            </div>
-                          </div>
+                              {stepDescription && (
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{stepDescription}</p>
+                              )}
+
+                              {/* Step Metadata */}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-3">
+                                <div>
+                                  <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Order</div>
+                                  <div className="text-gray-900 dark:text-white font-mono">{stepOrder}</div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Model</div>
+                                  <div className="text-gray-900 dark:text-white font-mono">
+                                    {modelName} <span className="text-gray-400 text-xs block">({providerModelId})</span>
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Temperature</div>
+                                  <div className="text-gray-900 dark:text-white font-mono">{step.llm_temperature != null ? step.llm_temperature.toFixed(2) : 'Default'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Processing Time</div>
+                                  <div className="text-gray-900 dark:text-white font-mono">{step.processing_time_seconds}s</div>
+                                </div>
+                              </div>
+                           </div>
                         </div>
 
                         {/* Step Content */}
-                        <div className="p-4 space-y-6">
+                        <div className="p-4 space-y-6 pl-4 md:pl-16 relative z-10">
 
                           {step.llm_system_prompt && (
                             <div>
