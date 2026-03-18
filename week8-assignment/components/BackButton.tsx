@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 
 type Props = {
   fallbackUrl: string;
@@ -20,12 +21,11 @@ export default function BackButton({ fallbackUrl, label }: Props) {
   };
 
   return (
-    <a
-      href={fallbackUrl}
+    <button
       onClick={handleBack}
-      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-2 cursor-pointer font-medium"
+      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-2 font-medium cursor-pointer"
     >
-      ← {label}
-    </a>
+      <ArrowLeft className="h-4 w-4" /> {label}
+    </button>
   );
 }

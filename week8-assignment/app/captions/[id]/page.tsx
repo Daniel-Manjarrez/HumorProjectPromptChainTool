@@ -3,11 +3,19 @@ import { createClient } from '@/utils/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Box, AlertCircle } from 'lucide-react';
+import BackButton from '@/components/BackButton';
 
-export default async function CaptionDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CaptionDetailPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ id: string }>,
+  searchParams: Promise<{ flavor?: string, page?: string }>
+}) {
   await requireAdmin();
   const supabase = await createClient();
   const { id } = await params;
+  const resolvedSearchParams = await searchParams;
 
   const { data: caption, error } = await supabase
     .from('captions')
@@ -137,13 +145,18 @@ export default async function CaptionDetailPage({ params }: { params: Promise<{ 
     ? caption.humor_flavors[0]?.slug
     : (caption.humor_flavors as any)?.slug;
 
+  // Construct fallback URL with preserved search params
+  const currentParams = new URLSearchParams();
+  if (resolvedSearchParams.flavor) currentParams.set('flavor', resolvedSearchParams.flavor);
+  if (resolvedSearchParams.page) currentParams.set('page', resolvedSearchParams.page);
+  const queryString = currentParams.toString();
+  const fallbackUrl = `/captions${queryString ? `?${queryString}` : ''}`;
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
-          <Link href="/captions" className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-2 font-medium">
-            <ArrowLeft className="h-4 w-4" /> Back to Captions
-          </Link>
+          <BackButton fallbackUrl={fallbackUrl} label="Back to Captions" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -234,7 +247,7 @@ export default async function CaptionDetailPage({ params }: { params: Promise<{ 
               ) : modelResponses.length === 0 && !debugError ? (
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
                   <p>Prompt chain ID found, but no response steps were recorded.</p>
-                  <p className="text-sm mt-2">This could be because the response tables were cleared, or the data has not synced.</p>
+                  <p className="text-sm mt-2">This could be because the response tables were cleared, or the relation failed to fetch.</p>
                 </div>
               ) : (
                 <div className="space-y-8 relative">

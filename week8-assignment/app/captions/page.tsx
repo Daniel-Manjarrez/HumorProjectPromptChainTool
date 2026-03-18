@@ -41,6 +41,13 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
   const totalPages = count ? Math.ceil(count / limit) : 0;
   const hasNextPage = page < totalPages;
 
+  // Reconstruct current search params to pass to detail pages
+  const currentParams = new URLSearchParams();
+  if (flavorFilter) currentParams.set('flavor', flavorFilter);
+  if (page > 1) currentParams.set('page', page.toString());
+  const queryString = currentParams.toString();
+  const returnSuffix = queryString ? `?${queryString}` : '';
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
       <div className="max-w-7xl mx-auto">
@@ -81,7 +88,7 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
                   return (
                     <tr key={caption.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                       <td className="px-6 py-4">
-                        <Link href={`/captions/${caption.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-serif italic hover:underline">
+                        <Link href={`/captions/${caption.id}${returnSuffix}`} className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-serif italic hover:underline">
                           "{caption.content.length > 80 ? `${caption.content.substring(0, 80)}...` : caption.content}"
                         </Link>
                       </td>
@@ -97,7 +104,7 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
                         {new Date(caption.created_datetime_utc).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Link href={`/captions/${caption.id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                        <Link href={`/captions/${caption.id}${returnSuffix}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                           View
                         </Link>
                       </td>
