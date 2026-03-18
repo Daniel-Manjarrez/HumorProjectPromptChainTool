@@ -39,7 +39,7 @@ export default async function Dashboard() {
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">Humor Flavors</h2>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-              Define the core styles of humor (e.g., "Dark", "Gen Z", "Sarcastic"). These act as the parent containers for prompt steps.
+              Define the core styles of humor (e.g., "Dark", "Gen Z"). These act as the parent containers for prompt steps.
             </p>
             <Link
               href="/flavors"

@@ -79,8 +79,8 @@ export default function FlavorListClient({ initialFlavors }: { initialFlavors: F
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-          <div className="relative flex-grow sm:min-w-[300px]">
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-center">
+          <div className="relative flex-grow sm:min-w-[300px] w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
             </div>
@@ -93,9 +93,15 @@ export default function FlavorListClient({ initialFlavors }: { initialFlavors: F
             />
           </div>
 
+          {searchQuery && (
+            <div className="text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap shrink-0">
+              {filteredFlavors.length} {filteredFlavors.length === 1 ? 'result' : 'results'}
+            </div>
+          )}
+
           <button
             onClick={handleOpenCreate}
-            className="flex items-center justify-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-sm shrink-0"
+            className="flex items-center justify-center w-full sm:w-auto gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-sm shrink-0"
           >
             <Plus className="h-4 w-4" />
             New Flavor
