@@ -14,15 +14,21 @@ export default async function TestPipelinePage() {
     .select('*')
     .order('id', { ascending: true });
 
-  // Fetch some recent images to use as a test set
-  const { data: images, error: imagesError } = await supabase
-    .from('images')
+  // Fetch available image sets
+  const { data: imageSets, error: setsError } = await supabase
+    .from('study_image_sets')
     .select('*')
+    .order('created_datetime_utc', { ascending: false });
+
+  // Fetch some recent images as default fallback if no set selected
+  const { data: defaultImages, error: imagesError } = await supabase
+    .from('images')
+    .select('id, url')
     .not('url', 'is', null)
     .order('created_datetime_utc', { ascending: false })
     .limit(24);
 
-  if (flavorsError || imagesError) {
+  if (flavorsError || imagesError || setsError) {
     return <div>Error loading data for tester.</div>;
   }
 
@@ -41,11 +47,15 @@ export default async function TestPipelinePage() {
             Pipeline Tester
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Select an image and a humor flavor to test your prompt chains via the live API.
+            Select a dataset, an image, and a humor flavor to test your prompt chains via the live API.
           </p>
         </div>
 
-        <TesterClient flavors={flavors || []} initialImages={images || []} />
+        <TesterClient
+          flavors={flavors || []}
+          imageSets={imageSets || []}
+          defaultImages={defaultImages || []}
+        />
       </div>
     </div>
   );

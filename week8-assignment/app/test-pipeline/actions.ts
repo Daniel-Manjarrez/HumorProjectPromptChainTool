@@ -37,3 +37,30 @@ export async function testFlavorGeneration(imageId: string, humorFlavorId: numbe
 
   return await response.json()
 }
+
+export async function fetchImagesForSet(setId: number) {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('study_image_set_image_mappings')
+    .select(`
+      images (
+        id,
+        url
+      )
+    `)
+    .eq('study_image_set_id', setId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  // Clean up the nested structure and filter out any nulls
+  const processedImages = data
+    .map(mapping => mapping.images)
+    // Handle potential array returns from Supabase joins
+    .map(img => Array.isArray(img) ? img[0] : img)
+    .filter(img => img && img.url)
+
+  return processedImages
+}

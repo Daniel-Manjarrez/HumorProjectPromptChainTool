@@ -1,23 +1,54 @@
 'use client';
 
-import { useState } from 'react';
-import { testFlavorGeneration } from './actions';
-import { Play, Loader2, CheckCircle2, AlertCircle, TestTube2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { testFlavorGeneration, fetchImagesForSet } from './actions';
+import { Play, Loader2, CheckCircle2, AlertCircle, TestTube2, Image as ImageIcon } from 'lucide-react';
 
 type Flavor = { id: number; slug: string; description: string };
+type ImageSet = { id: number; slug: string; description: string };
 type Image = { id: string; url: string };
 
 type Props = {
   flavors: Flavor[];
-  initialImages: Image[];
+  imageSets: ImageSet[];
+  defaultImages: Image[];
 };
 
-export default function TesterClient({ flavors, initialImages }: Props) {
+export default function TesterClient({ flavors, imageSets, defaultImages }: Props) {
+  const [selectedSet, setSelectedSet] = useState<number | 'recent'>('recent');
+  const [currentImages, setCurrentImages] = useState<Image[]>(defaultImages);
+  const [loadingImages, setLoadingImages] = useState(false);
+
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFlavor, setSelectedFlavor] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch images when set changes
+  useEffect(() => {
+    async function loadImages() {
+      if (selectedSet === 'recent') {
+        setCurrentImages(defaultImages);
+        setSelectedImage(null);
+        return;
+      }
+
+      setLoadingImages(true);
+      setSelectedImage(null); // Reset selection when changing set
+      try {
+        const images = await fetchImagesForSet(selectedSet as number);
+        setCurrentImages(images as any);
+      } catch (err) {
+        console.error("Failed to fetch images for set:", err);
+        setCurrentImages([]);
+      } finally {
+        setLoadingImages(false);
+      }
+    }
+
+    loadImages();
+  }, [selectedSet, defaultImages]);
 
   const handleTest = async () => {
     if (!selectedImage || !selectedFlavor) return;
@@ -37,7 +68,7 @@ export default function TesterClient({ flavors, initialImages }: Props) {
   };
 
   const getSelectedImageUrl = () => {
-    return initialImages.find(img => img.id === selectedImage)?.url;
+    return currentImages.find(img => img.id === selectedImage)?.url;
   };
 
   return (
@@ -45,29 +76,59 @@ export default function TesterClient({ flavors, initialImages }: Props) {
       {/* Configuration Column */}
       <div className="lg:col-span-1 space-y-6">
 
-        {/* Step 1: Image Selection */}
+        {/* Step 1: Dataset Selection */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 w-6 h-6 rounded-full flex items-center justify-center text-sm">1</span>
-            Select Image
+            Select Data Set
           </h2>
-          <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto p-2 border border-gray-100 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50">
-            {initialImages.map((img) => (
-              <div
-                key={img.id}
-                onClick={() => setSelectedImage(img.id)}
-                className={`cursor-pointer rounded-lg overflow-hidden border-2 transition-all aspect-square ${selectedImage === img.id ? 'border-blue-500 shadow-md transform scale-95' : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'}`}
-              >
-                <img src={img.url} alt="Test" className="w-full h-full object-cover" />
-              </div>
+          <select
+            value={selectedSet}
+            onChange={(e) => setSelectedSet(e.target.value === 'recent' ? 'recent' : parseInt(e.target.value))}
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+          >
+            <option value="recent">Recent Uploads (Default)</option>
+            {imageSets.map(set => (
+              <option key={set.id} value={set.id}>{set.slug}</option>
             ))}
-          </div>
+          </select>
         </div>
 
-        {/* Step 2: Flavor Selection */}
+        {/* Step 2: Image Selection */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <span className="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 w-6 h-6 rounded-full flex items-center justify-center text-sm">2</span>
+            <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 w-6 h-6 rounded-full flex items-center justify-center text-sm">2</span>
+            Select Image
+          </h2>
+
+          {loadingImages ? (
+            <div className="flex justify-center items-center h-32">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+            </div>
+          ) : currentImages.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No images found in this set.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto p-2 border border-gray-100 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50">
+              {currentImages.map((img) => (
+                <div
+                  key={img.id}
+                  onClick={() => setSelectedImage(img.id)}
+                  className={`cursor-pointer rounded-lg overflow-hidden border-2 transition-all aspect-square ${selectedImage === img.id ? 'border-blue-500 shadow-md transform scale-95' : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'}`}
+                >
+                  <img src={img.url} alt="Test" className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Step 3: Flavor Selection */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <span className="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 w-6 h-6 rounded-full flex items-center justify-center text-sm">3</span>
             Select Flavor
           </h2>
           <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
@@ -93,7 +154,7 @@ export default function TesterClient({ flavors, initialImages }: Props) {
           </div>
         </div>
 
-        {/* Step 3: Run */}
+        {/* Step 4: Run */}
         <button
           onClick={handleTest}
           disabled={!selectedImage || !selectedFlavor || loading}
