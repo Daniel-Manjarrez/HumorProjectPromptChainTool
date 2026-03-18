@@ -3,12 +3,18 @@ import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
 import { MessageSquare, ArrowLeft } from 'lucide-react';
 import FlavorFilter from './FlavorFilter';
+import Pagination from '@/components/Pagination';
 
-export default async function CaptionsPage({ searchParams }: { searchParams: Promise<{ flavor?: string }> }) {
+export default async function CaptionsPage({ searchParams }: { searchParams: Promise<{ flavor?: string, page?: string }> }) {
   await requireAdmin();
   const supabase = await createClient();
   const params = await searchParams;
   const flavorFilter = params.flavor;
+
+  const page = parseInt(params.page || '1');
+  const limit = 50;
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
 
   // Fetch Flavors for Filter Dropdown
   const { data: flavors } = await supabase.from('humor_flavors').select('id, slug').order('slug');
@@ -20,17 +26,20 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
       *,
       humor_flavors ( slug ),
       profiles ( email )
-    `)
+    `, { count: 'exact' })
     .order('created_datetime_utc', { ascending: false })
-    .limit(50); // Limit for simple view, could add pagination later
+    .range(from, to);
 
   if (flavorFilter) {
     query = query.eq('humor_flavor_id', flavorFilter);
   }
 
-  const { data: captions, error } = await query;
+  const { data: captions, count, error } = await query;
 
   if (error) return <div>Error loading captions: {error.message}</div>;
+
+  const totalPages = count ? Math.ceil(count / limit) : 0;
+  const hasNextPage = page < totalPages;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
@@ -47,13 +56,13 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center gap-3">
+        <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 flex flex-col">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center gap-3 shrink-0">
             <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Generated Captions</h2>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto flex-grow">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
@@ -97,6 +106,8 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
               </tbody>
             </table>
           </div>
+
+          <Pagination page={page} totalPages={totalPages} hasNextPage={hasNextPage} />
         </div>
       </div>
     </div>
