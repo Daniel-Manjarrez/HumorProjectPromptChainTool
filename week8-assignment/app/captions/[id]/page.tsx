@@ -2,7 +2,7 @@ import { requireAdmin } from '@/utils/auth';
 import { createClient } from '@/utils/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Box } from 'lucide-react';
+import { ArrowLeft, Box, AlertCircle } from 'lucide-react';
 
 export default async function CaptionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -32,7 +32,11 @@ export default async function CaptionDetailPage({ params }: { params: Promise<{ 
 
   // Fetch associated LLM model responses if a chain ID exists
   let modelResponses: any[] = [];
+  let debugError: any = null;
+  let stepTypesMap: Record<number, string> = {};
+
   if (caption.llm_prompt_chain_id) {
+    // Step 1: Fetch responses
     const { data: responses, error: responsesError } = await supabase
       .from('llm_model_responses')
       .select(`
@@ -40,17 +44,81 @@ export default async function CaptionDetailPage({ params }: { params: Promise<{ 
         llm_model_id,
         llm_user_prompt,
         llm_model_response,
+        llm_system_prompt,
+        llm_temperature,
         processing_time_seconds,
         created_datetime_utc,
+        humor_flavor_step_id,
         llm_models (
-          name
+          name,
+          provider_model_id
         )
       `)
       .eq('llm_prompt_chain_id', caption.llm_prompt_chain_id)
       .order('created_datetime_utc', { ascending: true }); // Order by step execution time
 
-    if (!responsesError && responses) {
-      modelResponses = responses;
+    if (responsesError) {
+      debugError = responsesError;
+      console.error("Error fetching model responses", responsesError);
+    } else if (responses && responses.length > 0) {
+      // Step 2: Extract step IDs to fetch step details
+      const stepIds = Array.from(new Set(responses.map(r => r.humor_flavor_step_id).filter(Boolean)));
+
+      let stepDetailsMap: Record<number, any> = {};
+
+      if (stepIds.length > 0) {
+        // Fetch steps without relying on joined relations that might have mismatched column names
+        const { data: stepsData, error: stepsError } = await supabase
+          .from('humor_flavor_steps')
+          .select('*')
+          .in('id', stepIds);
+
+        if (!stepsError && stepsData) {
+          stepDetailsMap = stepsData.reduce((acc, step) => {
+            acc[step.id] = step;
+            return acc;
+          }, {} as Record<number, any>);
+
+          // Step 2.5: Extract step type IDs and fetch those
+          const stepTypeIds = Array.from(new Set(stepsData.map(s => s.humor_flavor_step_type_id).filter(Boolean)));
+          if (stepTypeIds.length > 0) {
+            const { data: typesData } = await supabase
+              .from('humor_flavor_step_types')
+              .select('*')
+              .in('id', stepTypeIds);
+
+            if (typesData) {
+              stepTypesMap = typesData.reduce((acc, t: any) => {
+                acc[t.id] = t.name || t.type || t.slug || `Type ${t.id}`;
+                return acc;
+              }, {} as Record<number, string>);
+            }
+          }
+
+        } else if (stepsError) {
+          console.error("Error fetching step details", stepsError);
+        }
+      }
+
+      // Step 3: Merge data
+      modelResponses = responses.map(r => {
+        const stepDetail = r.humor_flavor_step_id ? stepDetailsMap[r.humor_flavor_step_id] : null;
+        return {
+          ...r,
+          humor_flavor_steps: stepDetail
+        };
+      });
+
+      // Step 4: Sort manually by order_by from the joined table
+      modelResponses.sort((a: any, b: any) => {
+        const orderA = a.humor_flavor_steps?.order_by || 0;
+        const orderB = b.humor_flavor_steps?.order_by || 0;
+        // Fallback to created_datetime if order is the same
+        if (orderA === orderB) {
+          return new Date(a.created_datetime_utc).getTime() - new Date(b.created_datetime_utc).getTime();
+        }
+        return orderA - orderB;
+      });
     }
   }
 
@@ -139,33 +207,47 @@ export default async function CaptionDetailPage({ params }: { params: Promise<{ 
           {/* Prompt Chain Execution Column */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white dark:bg-gray-800 shadow-xl rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 p-6">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Box className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  Prompt Chain Execution
+              <div className="flex flex-col mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  Prompt Chain Outputs
                 </h2>
-                {caption.llm_prompt_chain_id && (
-                  <span className="text-xs font-mono bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 px-2 py-1 rounded border border-gray-200 dark:border-gray-700">
-                    Chain ID: {caption.llm_prompt_chain_id}
-                  </span>
-                )}
+                <div className="text-gray-600 dark:text-gray-400">
+                  {modelResponses.length} {modelResponses.length === 1 ? 'response' : 'responses'} from prompt chain <Link href={`/prompt-chains/${caption.llm_prompt_chain_id}`} className="text-blue-600 dark:text-blue-400 hover:underline">#{caption.llm_prompt_chain_id}</Link>.
+                </div>
               </div>
+
+              {debugError && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6 text-red-800 dark:text-red-400 flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-bold mb-1">Database Query Error</h3>
+                    <pre className="text-xs font-mono whitespace-pre-wrap">{JSON.stringify(debugError, null, 2)}</pre>
+                  </div>
+                </div>
+              )}
 
               {!caption.llm_prompt_chain_id ? (
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
                   <p>No prompt chain was recorded for this caption.</p>
                   <p className="text-sm mt-2">This might be an older caption generated before tracing was enabled.</p>
                 </div>
-              ) : modelResponses.length === 0 ? (
+              ) : modelResponses.length === 0 && !debugError ? (
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
                   <p>Prompt chain ID found, but no response steps were recorded.</p>
+                  <p className="text-sm mt-2">This could be because the response tables were cleared, or the data has not synced.</p>
                 </div>
               ) : (
                 <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-300 dark:before:via-gray-600 before:to-transparent">
                   {modelResponses.map((step, index) => {
-                    const modelName = Array.isArray(step.llm_models)
-                      ? step.llm_models[0]?.name
-                      : (step.llm_models as any)?.name;
+                    // Extract data safely based on potential array wraps
+                    const modelObj = Array.isArray(step.llm_models) ? step.llm_models[0] : step.llm_models;
+                    const modelName = modelObj?.name || `Model ID: ${step.llm_model_id}`;
+                    const providerModelId = modelObj?.provider_model_id || '';
+
+                    const stepObj = step.humor_flavor_steps;
+                    const stepOrder = stepObj?.order_by || index + 1;
+                    const stepDescription = stepObj?.description || '';
+                    const stepTypeName = stepObj?.humor_flavor_step_type_id ? stepTypesMap[stepObj.humor_flavor_step_type_id] : 'General';
 
                     // Try to parse JSON response for better display
                     let parsedResponse = null;
@@ -176,7 +258,6 @@ export default async function CaptionDetailPage({ params }: { params: Promise<{ 
                         if (Array.isArray(parsedResponse)) {
                           isArray = true;
                         } else if (parsedResponse.choices?.[0]?.message?.content) {
-                          // Try to parse the content string if it's stringified JSON
                           try {
                             const innerContent = JSON.parse(parsedResponse.choices[0].message.content);
                             if (Array.isArray(innerContent)) {
@@ -195,52 +276,84 @@ export default async function CaptionDetailPage({ params }: { params: Promise<{ 
                     }
 
                     return (
-                      <div key={step.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white dark:border-gray-800 bg-blue-500 text-white shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow font-bold text-sm z-10">
-                          {index + 1}
-                        </div>
-                        <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm transition-shadow hover:shadow-md">
-                          <div className="flex justify-between items-start mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
-                            <span className="font-bold text-gray-900 dark:text-white text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                              {modelName || `Model ID: ${step.llm_model_id}`}
-                            </span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
-                              {step.processing_time_seconds}s
-                            </span>
-                          </div>
+                      <div key={step.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 
-                          <div className="space-y-4">
+                        {/* Step Header */}
+                        <div className="bg-gray-50 dark:bg-gray-900/50 p-4 border-b border-gray-200 dark:border-gray-700">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                              <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded">Step {stepOrder}</span>
+                              {stepTypeName}
+                            </h3>
+                            <Link href={`/llm-responses/${step.id}`} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                              View Raw Log
+                            </Link>
+                          </div>
+                          {stepDescription && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{stepDescription}</p>
+                          )}
+
+                          {/* Step Metadata */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
-                              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Prompt Snapshot</div>
-                              <div className="bg-gray-50 dark:bg-gray-900 rounded p-3 max-h-32 overflow-y-auto border border-gray-100 dark:border-gray-800">
-                                <p className="text-xs font-mono text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
-                                  {step.llm_user_prompt?.length > 300
-                                    ? step.llm_user_prompt.substring(0, 300) + '...'
-                                    : step.llm_user_prompt}
+                              <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Order</div>
+                              <div className="text-gray-900 dark:text-white font-mono">{stepOrder}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Model</div>
+                              <div className="text-gray-900 dark:text-white font-mono">
+                                {modelName} <span className="text-gray-400 text-xs">({providerModelId})</span>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Temperature</div>
+                              <div className="text-gray-900 dark:text-white font-mono">{step.llm_temperature != null ? step.llm_temperature.toFixed(2) : 'Default'}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500 dark:text-gray-400 font-medium mb-1">Processing Time</div>
+                              <div className="text-gray-900 dark:text-white font-mono">{step.processing_time_seconds}s</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Step Content */}
+                        <div className="p-4 space-y-6">
+
+                          {step.llm_system_prompt && (
+                            <div>
+                              <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">System prompt</h4>
+                              <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+                                <p className="text-sm text-gray-800 dark:text-gray-300 font-mono whitespace-pre-wrap leading-relaxed">
+                                  {step.llm_system_prompt}
                                 </p>
                               </div>
                             </div>
+                          )}
 
-                            <div>
-                              <div className="text-xs font-semibold text-green-600 dark:text-green-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-                                Output
-                                <Link href={`/llm-responses/${step.id}`} className="text-[10px] text-blue-500 hover:underline lowercase normal-case">view full raw log ↗</Link>
-                              </div>
-                              <div className="bg-green-50 dark:bg-green-900/10 rounded p-3 max-h-64 overflow-y-auto border border-green-100 dark:border-green-900/30">
-                                {isArray ? (
-                                  <ul className="list-disc pl-4 space-y-1">
-                                    {(parsedResponse as string[]).map((item, i) => (
-                                      <li key={i} className="text-sm font-serif text-gray-800 dark:text-gray-200">"{item}"</li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <p className="text-sm font-serif text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-                                    {typeof parsedResponse === 'string' ? parsedResponse : (parsedResponse ? JSON.stringify(parsedResponse, null, 2) : step.llm_model_response)}
-                                  </p>
-                                )}
-                              </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">User prompt</h4>
+                            <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+                              <p className="text-sm text-gray-800 dark:text-gray-300 font-mono whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+                                {step.llm_user_prompt}
+                              </p>
                             </div>
                           </div>
+
+                          <div>
+                            <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Model response</h4>
+                            <div className="bg-green-50 dark:bg-green-900/10 p-3 rounded-lg border border-green-100 dark:border-green-900/30">
+                              {isArray ? (
+                                <pre className="text-sm text-green-900 dark:text-green-300 font-mono whitespace-pre-wrap">
+                                  {JSON.stringify(parsedResponse, null, 2)}
+                                </pre>
+                              ) : (
+                                <pre className="text-sm text-green-900 dark:text-green-300 font-mono whitespace-pre-wrap max-h-96 overflow-y-auto">
+                                  {typeof parsedResponse === 'string' ? parsedResponse : (parsedResponse ? JSON.stringify(parsedResponse, null, 2) : step.llm_model_response)}
+                                </pre>
+                              )}
+                            </div>
+                          </div>
+
                         </div>
                       </div>
                     );
