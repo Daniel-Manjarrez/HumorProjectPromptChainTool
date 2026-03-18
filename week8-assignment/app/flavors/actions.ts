@@ -27,6 +27,76 @@ export async function deleteFlavor(id: number) {
   revalidatePath('/flavors')
 }
 
+export async function duplicateFlavor(id: number) {
+  const supabase = await createClient()
+
+  // 1. Fetch original flavor
+  const { data: originalFlavor, error: flavorError } = await supabase
+    .from('humor_flavors')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (flavorError || !originalFlavor) throw new Error("Could not find original flavor")
+
+  // 2. Insert new flavor (with 'copy' appended to slug)
+  let newSlug = `${originalFlavor.slug}-copy`
+  let counter = 1
+  let isUnique = false
+
+  // Ensure unique slug
+  while (!isUnique) {
+    const { data: existing } = await supabase.from('humor_flavors').select('id').eq('slug', newSlug).single()
+    if (existing) {
+      newSlug = `${originalFlavor.slug}-copy-${counter}`
+      counter++
+    } else {
+      isUnique = true
+    }
+  }
+
+  const { data: newFlavor, error: insertError } = await supabase
+    .from('humor_flavors')
+    .insert({
+      slug: newSlug,
+      description: originalFlavor.description ? `${originalFlavor.description} (Copy)` : 'Copy',
+    })
+    .select()
+    .single()
+
+  if (insertError || !newFlavor) throw new Error("Failed to create duplicated flavor")
+
+  // 3. Fetch original steps
+  const { data: originalSteps, error: stepsError } = await supabase
+    .from('humor_flavor_steps')
+    .select('*')
+    .eq('humor_flavor_id', id)
+    .order('order_by', { ascending: true })
+
+  if (stepsError) throw new Error("Failed to fetch original steps")
+
+  // 4. Duplicate steps for the new flavor
+  if (originalSteps && originalSteps.length > 0) {
+    const newSteps = originalSteps.map(step => {
+      const { id: _removedId, created_datetime_utc: _removedDate, ...stepData } = step
+      return {
+        ...stepData,
+        humor_flavor_id: newFlavor.id
+      }
+    })
+
+    const { error: insertStepsError } = await supabase
+      .from('humor_flavor_steps')
+      .insert(newSteps)
+
+    if (insertStepsError) throw new Error("Failed to duplicate steps: " + insertStepsError.message)
+  }
+
+  revalidatePath('/flavors')
+  return newFlavor.id
+}
+
+
 // --- HUMOR FLAVOR STEPS ---
 
 export async function createStep(data: any) {

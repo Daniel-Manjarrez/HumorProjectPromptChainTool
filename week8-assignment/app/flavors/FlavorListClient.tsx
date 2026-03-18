@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Layers, Plus, Pencil, Trash2, Settings2, Search } from 'lucide-react';
-import { createFlavor, updateFlavor, deleteFlavor } from './actions';
+import { Layers, Plus, Pencil, Trash2, Settings2, Search, Copy } from 'lucide-react';
+import { createFlavor, updateFlavor, deleteFlavor, duplicateFlavor } from './actions';
+import { useRouter } from 'next/navigation';
 
 type Flavor = {
   id: number;
@@ -13,6 +14,7 @@ type Flavor = {
 };
 
 export default function FlavorListClient({ initialFlavors }: { initialFlavors: Flavor[] }) {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFlavor, setEditingFlavor] = useState<Flavor | null>(null);
   const [formData, setFormData] = useState({ slug: '', description: '' });
@@ -35,6 +37,16 @@ export default function FlavorListClient({ initialFlavors }: { initialFlavors: F
     if (!confirm('Are you sure you want to delete this flavor? All its steps will also be deleted.')) return;
     try {
       await deleteFlavor(id);
+    } catch (e: any) {
+      alert('Error: ' + e.message);
+    }
+  };
+
+  const handleDuplicate = async (id: number) => {
+    if (!confirm('Are you sure you want to duplicate this flavor and all its steps?')) return;
+    try {
+      const newFlavorId = await duplicateFlavor(id);
+      router.push(`/flavors/${newFlavorId}`);
     } catch (e: any) {
       alert('Error: ' + e.message);
     }
@@ -116,7 +128,10 @@ export default function FlavorListClient({ initialFlavors }: { initialFlavors: F
               <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate" title={flavor.slug}>
                 {flavor.slug}
               </h3>
-              <div className="flex gap-2">
+              <div className="flex gap-1 shrink-0">
+                <button onClick={() => handleDuplicate(flavor.id)} className="p-1.5 text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors" title="Duplicate Flavor">
+                  <Copy className="h-4 w-4" />
+                </button>
                 <button onClick={() => handleOpenEdit(flavor)} className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" title="Edit Metadata">
                   <Pencil className="h-4 w-4" />
                 </button>
