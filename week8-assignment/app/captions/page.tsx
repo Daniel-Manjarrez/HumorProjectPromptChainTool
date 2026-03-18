@@ -70,6 +70,7 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Flavor</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Author</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
@@ -78,9 +79,11 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
                   const authorEmail = Array.isArray(caption.profiles) ? caption.profiles[0]?.email : (caption.profiles as any)?.email;
 
                   return (
-                    <tr key={caption.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                    <tr key={caption.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white font-serif italic">"{caption.content}"</div>
+                        <Link href={`/captions/${caption.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-serif italic hover:underline">
+                          "{caption.content.length > 80 ? `${caption.content.substring(0, 80)}...` : caption.content}"
+                        </Link>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
@@ -93,12 +96,17 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {new Date(caption.created_datetime_utc).toLocaleDateString()}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <Link href={`/captions/${caption.id}`} className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                          View
+                        </Link>
+                      </td>
                     </tr>
                   );
                 })}
                 {captions?.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400 italic">
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400 italic">
                       No captions found for this flavor.
                     </td>
                   </tr>
