@@ -19,7 +19,7 @@ type Step = {
   description: string | null;
 };
 
-type Lookup = { id: number; name: string };
+type Lookup = { id: number; name: string; type?: string; slug?: string };
 type ModelLookup = { id: number; name: string; is_temperature_supported: boolean };
 
 type Props = {
@@ -113,15 +113,9 @@ export default function StepBuilderClient({ flavorId, initialSteps, lookups }: P
 
   const getModelName = (id: number) => lookups.models.find(m => m.id === id)?.name || 'Unknown';
 
-  // FIXED: Fallback to the ID itself or 'Unknown' if not found in lookup array
   const getStepTypeName = (id: number) => {
     const found = lookups.stepTypes.find(t => t.id === id);
-    if (found) return found.name;
-
-    // As a fallback, if the table doesn't have a 'name' column but maybe 'type' or 'slug'
-    const foundAny = lookups.stepTypes.find(t => t.id === id) as any;
-    if (foundAny) return foundAny.type || foundAny.slug || foundAny.name || `Type ${id}`;
-
+    if (found) return found.name || found.type || found.slug || `Type ${id}`;
     return `Type ${id}`;
   };
 
@@ -146,7 +140,6 @@ export default function StepBuilderClient({ flavorId, initialSteps, lookups }: P
       setLoading(false);
     }
   };
-
 
   if (!isClient) return null; // Prevent SSR mismatch with DragDropContext
 
@@ -197,10 +190,7 @@ export default function StepBuilderClient({ flavorId, initialSteps, lookups }: P
                           <div className="flex-grow max-w-full overflow-hidden">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
                               <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold px-2 py-1 rounded-md shrink-0">
-                                Step {index + 1}
-                              </span>
-                              <span className="font-semibold text-gray-900 dark:text-white truncate max-w-[150px] sm:max-w-[200px]">
-                                {getStepTypeName(step.humor_flavor_step_type_id)}
+                                Step {index + 1} - {getStepTypeName(step.humor_flavor_step_type_id)}
                               </span>
                               <span className="text-xs font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2 py-0.5 rounded border border-purple-100 dark:border-purple-800/50">
                                 via {getModelName(step.llm_model_id)}
