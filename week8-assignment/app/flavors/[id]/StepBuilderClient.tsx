@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { GripVertical, Plus, Pencil, Trash2, Code2 } from 'lucide-react';
+import { GripVertical, Plus, Pencil, Trash2, Code2, HelpCircle, X } from 'lucide-react';
 import { createStep, updateStep, deleteStep, reorderSteps } from '../actions';
 
 type Step = {
@@ -39,6 +39,7 @@ export default function StepBuilderClient({ flavorId, initialSteps, lookups }: P
   const [editingStep, setEditingStep] = useState<Step | null>(null);
   const [loading, setLoading] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [showVariablesHelp, setShowVariablesHelp] = useState(false);
 
   // Default form state
   const defaultForm = {
@@ -145,6 +146,21 @@ export default function StepBuilderClient({ flavorId, initialSteps, lookups }: P
     }
   };
 
+  const promptVariables = [
+    "${stepNOutput}",
+    "${imageDescription}",
+    "${imageAdditionalContext}",
+    "${allCommunityContexts}",
+    "${tenRandomCommunityContexts}",
+    "${fiveRelevantCommunityContexts}",
+    "${allTerms}",
+    "${tenRandomTerms}",
+    "${allCaptionExamples}",
+    "${tenRandomCaptionExamples}",
+    "${startRandomizeLines}",
+    "${endRandomizeLines}"
+  ];
+
   if (!isClient) return null; // Prevent SSR mismatch with DragDropContext
 
   return (
@@ -228,109 +244,161 @@ export default function StepBuilderClient({ flavorId, initialSteps, lookups }: P
       {/* Create/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 shrink-0">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                 {editingStep ? 'Edit Step' : 'Create New Step'}
               </h3>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6">
+            <div className="flex flex-col md:flex-row h-full overflow-hidden">
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Step Type</label>
-                  <select
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                    value={formData.humor_flavor_step_type_id}
-                    onChange={e => setFormData({...formData, humor_flavor_step_type_id: parseInt(e.target.value)})}
-                  >
-                    {lookups.stepTypes.map((t: any) => <option key={t.id} value={t.id}>{getLookupName(t)}</option>)}
-                  </select>
+              {/* Form Section */}
+              <form onSubmit={handleSubmit} className="flex-1 p-6 overflow-y-auto space-y-6">
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Step Type</label>
+                    <select
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                      value={formData.humor_flavor_step_type_id}
+                      onChange={e => setFormData({...formData, humor_flavor_step_type_id: parseInt(e.target.value)})}
+                    >
+                      {lookups.stepTypes.map((t: any) => <option key={t.id} value={t.id}>{getLookupName(t)}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Model</label>
+                    <select
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                      value={formData.llm_model_id}
+                      onChange={e => setFormData({...formData, llm_model_id: parseInt(e.target.value)})}
+                    >
+                      {lookups.models.map((m: any) => <option key={m.id} value={m.id}>{getLookupName(m)}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Input Type</label>
+                    <select
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                      value={formData.llm_input_type_id}
+                      onChange={e => setFormData({...formData, llm_input_type_id: parseInt(e.target.value)})}
+                    >
+                      {lookups.inputTypes.map((t: any) => <option key={t.id} value={t.id}>{getLookupName(t)}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Output Type</label>
+                    <select
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                      value={formData.llm_output_type_id}
+                      onChange={e => setFormData({...formData, llm_output_type_id: parseInt(e.target.value)})}
+                    >
+                      {lookups.outputTypes.map((t: any) => <option key={t.id} value={t.id}>{getLookupName(t)}</option>)}
+                    </select>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Model</label>
-                  <select
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                    value={formData.llm_model_id}
-                    onChange={e => setFormData({...formData, llm_model_id: parseInt(e.target.value)})}
-                  >
-                    {lookups.models.map((m: any) => <option key={m.id} value={m.id}>{getLookupName(m)}</option>)}
-                  </select>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex justify-between">
+                    <span>Temperature</span>
+                    <span className="text-blue-600 font-mono bg-blue-50 dark:bg-blue-900/30 px-2 rounded">{formData.llm_temperature}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0" max="2" step="0.1"
+                    className="w-full accent-blue-600"
+                    value={formData.llm_temperature || 1.0}
+                    onChange={e => setFormData({...formData, llm_temperature: parseFloat(e.target.value)})}
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Input Type</label>
-                  <select
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Description (Internal note)</label>
+                  <input
+                    type="text"
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                    value={formData.llm_input_type_id}
-                    onChange={e => setFormData({...formData, llm_input_type_id: parseInt(e.target.value)})}
-                  >
-                    {lookups.inputTypes.map((t: any) => <option key={t.id} value={t.id}>{getLookupName(t)}</option>)}
-                  </select>
+                    value={formData.description}
+                    onChange={e => setFormData({...formData, description: e.target.value})}
+                    placeholder="e.g. Extract visual elements"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Output Type</label>
-                  <select
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                    value={formData.llm_output_type_id}
-                    onChange={e => setFormData({...formData, llm_output_type_id: parseInt(e.target.value)})}
-                  >
-                    {lookups.outputTypes.map((t: any) => <option key={t.id} value={t.id}>{getLookupName(t)}</option>)}
-                  </select>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">System Prompt</label>
+                  <textarea
+                    rows={4}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-mono text-sm leading-relaxed"
+                    value={formData.llm_system_prompt}
+                    onChange={e => setFormData({...formData, llm_system_prompt: e.target.value})}
+                    placeholder="You are an expert at..."
+                  />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 flex justify-between">
-                  <span>Temperature</span>
-                  <span className="text-blue-600 font-mono bg-blue-50 dark:bg-blue-900/30 px-2 rounded">{formData.llm_temperature}</span>
-                </label>
-                <input
-                  type="range"
-                  min="0" max="2" step="0.1"
-                  className="w-full accent-blue-600"
-                  value={formData.llm_temperature || 1.0}
-                  onChange={e => setFormData({...formData, llm_temperature: parseFloat(e.target.value)})}
-                />
-              </div>
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">User Prompt Template</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowVariablesHelp(!showVariablesHelp)}
+                      className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 font-medium bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-2 py-1 rounded transition-colors"
+                    >
+                      <HelpCircle className="h-3 w-3" />
+                      {showVariablesHelp ? 'Hide Variables' : 'Show Variables'}
+                    </button>
+                  </div>
+                  <textarea
+                    rows={4}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-mono text-sm leading-relaxed"
+                    value={formData.llm_user_prompt}
+                    onChange={e => setFormData({...formData, llm_user_prompt: e.target.value})}
+                    placeholder="Analyze this image and..."
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Description (Internal note)</label>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                  value={formData.description}
-                  onChange={e => setFormData({...formData, description: e.target.value})}
-                  placeholder="e.g. Extract visual elements"
-                />
-              </div>
+              </form>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">System Prompt</label>
-                <textarea
-                  rows={4}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-mono text-sm leading-relaxed"
-                  value={formData.llm_system_prompt}
-                  onChange={e => setFormData({...formData, llm_system_prompt: e.target.value})}
-                  placeholder="You are an expert at..."
-                />
-              </div>
+              {/* Variables Help Panel */}
+              {showVariablesHelp && (
+                <div className="w-full md:w-80 bg-blue-50 dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 p-4 overflow-y-auto shrink-0 animate-fadeIn relative">
+                  <button
+                    onClick={() => setShowVariablesHelp(false)}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <div className="flex items-center gap-2 text-blue-800 dark:text-blue-400 font-bold mb-2">
+                    <HelpCircle className="h-4 w-4" />
+                    Prompt Variables
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-4 pr-6">
+                    Use these placeholders to pull in pipeline outputs, image details, and community context. Keep the placeholders exactly as shown, including the <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">${`{...}`}</code>.
+                  </p>
+                  <div className="space-y-2">
+                    {promptVariables.map(v => (
+                      <div key={v} className="bg-white dark:bg-gray-900 border border-blue-100 dark:border-gray-700 p-2 rounded text-xs font-mono text-blue-900 dark:text-blue-300 flex items-center justify-between group">
+                        {v}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Simple click-to-copy or insert (just copying for now)
+                            navigator.clipboard.writeText(v);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600 transition-opacity"
+                          title="Copy to clipboard"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">User Prompt Template</label>
-                <textarea
-                  rows={4}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-mono text-sm leading-relaxed"
-                  value={formData.llm_user_prompt}
-                  onChange={e => setFormData({...formData, llm_user_prompt: e.target.value})}
-                  placeholder="Analyze this image and..."
-                />
-              </div>
-
-            </form>
+            </div>
 
             <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 shrink-0">
               <button
