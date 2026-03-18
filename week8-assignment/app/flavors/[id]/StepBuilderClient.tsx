@@ -19,7 +19,7 @@ type Step = {
   description: string | null;
 };
 
-type Lookup = { id: number; name: string; type?: string; slug?: string };
+type Lookup = { id: number; name?: string; type?: string; slug?: string; description?: string };
 type ModelLookup = { id: number; name: string; is_temperature_supported: boolean };
 
 type Props = {
@@ -115,8 +115,12 @@ export default function StepBuilderClient({ flavorId, initialSteps, lookups }: P
 
   const getStepTypeName = (id: number) => {
     const found = lookups.stepTypes.find(t => t.id === id);
-    if (found) return found.name || found.type || found.slug || `Type ${id}`;
+    if (found) return found.name || found.type || found.slug || found.description || `Type ${id}`;
     return `Type ${id}`;
+  };
+
+  const getLookupName = (item: any) => {
+    return item.name || item.slug || item.type || item.description || `ID: ${item.id}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -241,7 +245,7 @@ export default function StepBuilderClient({ flavorId, initialSteps, lookups }: P
                     value={formData.humor_flavor_step_type_id}
                     onChange={e => setFormData({...formData, humor_flavor_step_type_id: parseInt(e.target.value)})}
                   >
-                    {lookups.stepTypes.map((t: any) => <option key={t.id} value={t.id}>{t.name || t.type || t.slug || `Type ${t.id}`}</option>)}
+                    {lookups.stepTypes.map((t: any) => <option key={t.id} value={t.id}>{getLookupName(t)}</option>)}
                   </select>
                 </div>
 
@@ -252,7 +256,7 @@ export default function StepBuilderClient({ flavorId, initialSteps, lookups }: P
                     value={formData.llm_model_id}
                     onChange={e => setFormData({...formData, llm_model_id: parseInt(e.target.value)})}
                   >
-                    {lookups.models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    {lookups.models.map((m: any) => <option key={m.id} value={m.id}>{getLookupName(m)}</option>)}
                   </select>
                 </div>
 
@@ -263,7 +267,7 @@ export default function StepBuilderClient({ flavorId, initialSteps, lookups }: P
                     value={formData.llm_input_type_id}
                     onChange={e => setFormData({...formData, llm_input_type_id: parseInt(e.target.value)})}
                   >
-                    {lookups.inputTypes.map((t: any) => <option key={t.id} value={t.id}>{t.name || t.type || `Type ${t.id}`}</option>)}
+                    {lookups.inputTypes.map((t: any) => <option key={t.id} value={t.id}>{getLookupName(t)}</option>)}
                   </select>
                 </div>
 
@@ -274,7 +278,7 @@ export default function StepBuilderClient({ flavorId, initialSteps, lookups }: P
                     value={formData.llm_output_type_id}
                     onChange={e => setFormData({...formData, llm_output_type_id: parseInt(e.target.value)})}
                   >
-                    {lookups.outputTypes.map((t: any) => <option key={t.id} value={t.id}>{t.name || t.type || `Type ${t.id}`}</option>)}
+                    {lookups.outputTypes.map((t: any) => <option key={t.id} value={t.id}>{getLookupName(t)}</option>)}
                   </select>
                 </div>
               </div>

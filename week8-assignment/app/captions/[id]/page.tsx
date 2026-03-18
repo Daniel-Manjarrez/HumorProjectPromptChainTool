@@ -238,7 +238,6 @@ export default async function CaptionDetailPage({ params }: { params: Promise<{ 
                 </div>
               ) : (
                 <div className="space-y-8 relative">
-                  {/* Replaced the full-height before line with absolute line to remove the line "down the middle" that was causing layout artifacts */}
                   {modelResponses.map((step, index) => {
                     // Extract data safely based on potential array wraps
                     const modelObj = Array.isArray(step.llm_models) ? step.llm_models[0] : step.llm_models;
@@ -352,9 +351,11 @@ export default async function CaptionDetailPage({ params }: { params: Promise<{ 
                             <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Model response</h4>
                             <div className="bg-green-50 dark:bg-green-900/10 p-3 rounded-lg border border-green-100 dark:border-green-900/30">
                               {isArray ? (
-                                <pre className="text-sm text-green-900 dark:text-green-300 font-mono whitespace-pre-wrap">
-                                  {JSON.stringify(parsedResponse, null, 2)}
-                                </pre>
+                                <ul className="list-disc pl-4 space-y-1">
+                                  {(parsedResponse as string[]).map((item, i) => (
+                                    <li key={i} className="text-sm font-serif text-gray-800 dark:text-gray-200">"{item}"</li>
+                                  ))}
+                                </ul>
                               ) : (
                                 <pre className="text-sm text-green-900 dark:text-green-300 font-mono whitespace-pre-wrap max-h-96 overflow-y-auto">
                                   {typeof parsedResponse === 'string' ? parsedResponse : (parsedResponse ? JSON.stringify(parsedResponse, null, 2) : step.llm_model_response)}
