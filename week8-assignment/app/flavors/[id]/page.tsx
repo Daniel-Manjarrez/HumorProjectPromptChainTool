@@ -37,7 +37,7 @@ export default async function FlavorBuilderPage({ params }: { params: Promise<{ 
   ] = await Promise.all([
     supabase.from('llm_input_types').select('*').order('id'),
     supabase.from('llm_output_types').select('*').order('id'),
-    supabase.from('llm_models').select('*').order('name'),
+    supabase.from('llm_models').select('*, llm_providers(name)').order('name'),
     supabase.from('humor_flavor_step_types').select('*').order('id')
   ]);
 
