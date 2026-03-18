@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Layers, Plus, Pencil, Trash2, Settings2 } from 'lucide-react';
+import { Layers, Plus, Pencil, Trash2, Settings2, Search } from 'lucide-react';
 import { createFlavor, updateFlavor, deleteFlavor } from './actions';
 
 type Flavor = {
@@ -17,6 +17,7 @@ export default function FlavorListClient({ initialFlavors }: { initialFlavors: F
   const [editingFlavor, setEditingFlavor] = useState<Flavor | null>(null);
   const [formData, setFormData] = useState({ slug: '', description: '' });
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleOpenCreate = () => {
     setEditingFlavor(null);
@@ -56,9 +57,18 @@ export default function FlavorListClient({ initialFlavors }: { initialFlavors: F
     }
   };
 
+  const filteredFlavors = initialFlavors.filter((flavor) => {
+    if (!searchQuery) return true;
+    const lowerQuery = searchQuery.toLowerCase();
+    return (
+      (flavor.slug && flavor.slug.toLowerCase().includes(lowerQuery)) ||
+      (flavor.description && flavor.description.toLowerCase().includes(lowerQuery))
+    );
+  });
+
   return (
     <div>
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
             <Layers className="h-8 w-8 text-purple-600 dark:text-purple-400" />
@@ -68,17 +78,33 @@ export default function FlavorListClient({ initialFlavors }: { initialFlavors: F
             Manage the core styles and their underlying prompt pipelines.
           </p>
         </div>
-        <button
-          onClick={handleOpenCreate}
-          className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-sm"
-        >
-          <Plus className="h-4 w-4" />
-          New Flavor
-        </button>
+
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+          <div className="relative flex-grow sm:min-w-[300px]">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by name or description..."
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg leading-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 sm:text-sm transition-colors"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <button
+            onClick={handleOpenCreate}
+            className="flex items-center justify-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-sm shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            New Flavor
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {initialFlavors.map((flavor) => (
+        {filteredFlavors.map((flavor) => (
           <div key={flavor.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 flex flex-col h-full hover:shadow-lg transition-shadow">
             <div className="flex justify-between items-start mb-4">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate" title={flavor.slug}>
@@ -112,9 +138,9 @@ export default function FlavorListClient({ initialFlavors }: { initialFlavors: F
             </div>
           </div>
         ))}
-        {initialFlavors.length === 0 && (
+        {filteredFlavors.length === 0 && (
           <div className="col-span-full py-12 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
-            No humor flavors found. Create one to get started!
+            {searchQuery ? 'No humor flavors found matching your search.' : 'No humor flavors found. Create one to get started!'}
           </div>
         )}
       </div>
