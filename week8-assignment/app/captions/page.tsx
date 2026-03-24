@@ -19,14 +19,13 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
   // Fetch Flavors for Filter Dropdown
   const { data: flavors } = await supabase.from('humor_flavors').select('id, slug').order('slug');
 
-  // Fetch Captions
+  // Fetch Captions. We are keeping it simple here to avoid join errors
+  // with the new schema changes. We fetch just the captions, and if we need
+  // relation data, we could fetch it separately, but for now we'll just show IDs
+  // or use safe simple joins.
   let query = supabase
     .from('captions')
-    .select(`
-      *,
-      humor_flavors ( slug ),
-      profiles ( email )
-    `, { count: 'exact' })
+    .select(`*`, { count: 'exact' })
     .order('created_datetime_utc', { ascending: false })
     .range(from, to);
 
@@ -36,7 +35,10 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
 
   const { data: captions, count, error } = await query;
 
-  if (error) return <div>Error loading captions: {error.message}</div>;
+  if (error) {
+     console.error("Error loading captions:", error);
+     return <div>Error loading captions: {error.message}</div>;
+  }
 
   const totalPages = count ? Math.ceil(count / limit) : 0;
   const hasNextPage = page < totalPages;
@@ -47,6 +49,13 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
   if (page > 1) currentParams.set('page', page.toString());
   const queryString = currentParams.toString();
   const returnSuffix = queryString ? `?${queryString}` : '';
+
+  // To display nice flavor slugs instead of just IDs, we can map them in JS
+  // since we already fetched the list of all flavors above!
+  const getFlavorSlug = (id: number | null) => {
+    if (!id) return 'None';
+    return flavors?.find(f => f.id === id)?.slug || `ID: ${id}`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
@@ -75,16 +84,13 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Content</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Flavor</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Author</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Author ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-                {captions?.map((caption) => {
-                  const flavorSlug = Array.isArray(caption.humor_flavors) ? caption.humor_flavors[0]?.slug : (caption.humor_flavors as any)?.slug;
-                  const authorEmail = Array.isArray(caption.profiles) ? caption.profiles[0]?.email : (caption.profiles as any)?.email;
-
+                {(captions || [])?.map((caption) => {
                   return (
                     <tr key={caption.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                       <td className="px-6 py-4">
@@ -94,11 +100,11 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
-                          {flavorSlug || `ID: ${caption.humor_flavor_id}`}
+                          {getFlavorSlug(caption.humor_flavor_id)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {authorEmail || caption.profile_id}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
+                        {caption.profile_id}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {new Date(caption.created_datetime_utc).toLocaleDateString()}
@@ -111,7 +117,7 @@ export default async function CaptionsPage({ searchParams }: { searchParams: Pro
                     </tr>
                   );
                 })}
-                {captions?.length === 0 && (
+                {(!captions || captions.length === 0) && (
                   <tr>
                     <td colSpan={5} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400 italic">
                       No captions found for this flavor.

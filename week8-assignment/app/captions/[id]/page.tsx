@@ -21,13 +21,13 @@ export default async function CaptionDetailPage({
     .from('captions')
     .select(`
       *,
-      images (
+      images!image_id (
         url
       ),
-      profiles (
+      profiles!profile_id (
         email
       ),
-      humor_flavors (
+      humor_flavors!humor_flavor_id (
         slug
       )
     `)
@@ -35,6 +35,7 @@ export default async function CaptionDetailPage({
     .single();
 
   if (error || !caption) {
+    if (error) console.error("Error fetching caption details:", error);
     notFound();
   }
 
@@ -250,7 +251,7 @@ export default async function CaptionDetailPage({
                   <p className="text-sm mt-2">This could be because the response tables were cleared, or the relation failed to fetch.</p>
                 </div>
               ) : (
-                <div className="space-y-8 relative">
+                <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-300 dark:before:via-gray-600 before:to-transparent">
                   {modelResponses.map((step, index) => {
                     // Extract data safely based on potential array wraps
                     const modelObj = Array.isArray(step.llm_models) ? step.llm_models[0] : step.llm_models;
@@ -365,8 +366,14 @@ export default async function CaptionDetailPage({
                             <div className="bg-green-50 dark:bg-green-900/10 p-3 rounded-lg border border-green-100 dark:border-green-900/30">
                               {isArray ? (
                                 <ul className="list-disc pl-4 space-y-1">
-                                  {(parsedResponse as string[]).map((item, i) => (
-                                    <li key={i} className="text-sm font-serif text-gray-800 dark:text-gray-200">"{item}"</li>
+                                  {(parsedResponse as any[]).map((item, i) => (
+                                    <li key={i} className="text-sm font-serif text-gray-800 dark:text-gray-200">
+                                      {typeof item === 'string' ? `"${item}"` : (
+                                        <pre className="inline-block bg-white dark:bg-gray-900 p-2 rounded text-xs font-mono text-gray-700 dark:text-gray-300 w-full mt-1 overflow-x-auto">
+                                          {JSON.stringify(item, null, 2)}
+                                        </pre>
+                                      )}
+                                    </li>
                                   ))}
                                 </ul>
                               ) : (
